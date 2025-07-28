@@ -1045,7 +1045,7 @@ src/
     phone?: string, // 전화번호
     address?: string, // 주소
     type: 'user' | 'seller' | 'admin', // 사용자 유형
-    loginType?: 'email' | 'kakao' | 'google' | 'github', // 로그인 방식
+    loginType?: 'email' | 'kakao' | 'google' | 'github' | 'naver', // 로그인 방식
     image?: string, // 프로필 이미지
     token?: { // 인증 토큰
       accessToken: string, // 액세스 토큰
@@ -1061,6 +1061,32 @@ src/
 
   ```ts
   import { User } from "@/types/user";
+
+  /**
+   * 게시글에 대한 답글(댓글) 정보를 나타내는 인터페이스
+   * Pick<T, K>:
+   * T 타입에서 K에 해당하는 속성만 선택해 새로운 타입을 만듭니다.
+   * 예시: Pick<User, '_id' | 'name' | 'image'>는 User 타입에서 _id, name, image만 포함하는 타입입니다.
+   */
+  export interface PostReply {
+    // 답글의 고유 ID
+    _id: number,
+    // 답글 작성자 정보 (id, 이름, 이미지)
+    user: Pick<User, '_id' | 'name' | 'image'>,
+    // 답글 내용
+    content: string,
+    // 답글의 좋아요 수
+    like: number,
+    // 답글 생성일
+    createdAt: string,
+    // 답글 수정일
+    updatedAt: string,
+  }
+
+  /**
+   * 답글 작성 폼에서 사용하는 타입 (content만 포함)
+   */
+  export type PostReplyForm = Pick<PostReply, 'content'>;
 
   /**
    * 게시글 정보를 나타내는 인터페이스
@@ -1099,32 +1125,6 @@ src/
     // 게시글 태그(쉼표로 구분된 문자열)
     tags?: string,
   }
-  
-  /**
-   * 게시글에 대한 답글(댓글) 정보를 나타내는 인터페이스
-   * Pick<T, K>:
-   * T 타입에서 K에 해당하는 속성만 선택해 새로운 타입을 만듭니다.
-   * 예시: Pick<User, '_id' | 'name' | 'image'>는 User 타입에서 _id, name, image만 포함하는 타입입니다.
-   */
-  export interface PostReply {
-    // 답글의 고유 ID
-    _id: number,
-    // 답글 작성자 정보 (id, 이름, 이미지)
-    user: Pick<User, '_id' | 'name' | 'image'>,
-    // 답글 내용
-    content: string,
-    // 답글의 좋아요 수
-    like: number,
-    // 답글 생성일
-    createdAt: string,
-    // 답글 수정일
-    updatedAt: string,
-  }
-
-  /**
-   * 답글 작성 폼에서 사용하는 타입 (content만 포함)
-   */
-  export type PostReplyForm = Pick<PostReply, 'content'>;
   ```
 
 ### 4.1.3 서버 응답 데이터 타입 정의
@@ -1524,20 +1524,21 @@ import Image from "next/image";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID || '';
 
 export default function CommentItem({ reply }: { reply: PostReply }) {
   return (
     <div className="shadow-md rounded-lg p-4 mb-4">
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center">
-          { reply.user.image && <Image
-            className="w-8 mr-2 rounded-full"
-            src={`${API_URL}/files/${CLIENT_ID}/${reply.user.image}`}
-            alt={`${reply.user.name} 프로필 이미지`}
-            width="32"
-            height="32"
-          /> }
+          { reply.user.image && (
+            <Image
+              className="w-8 mr-2 rounded-full"
+              src={`${API_URL}/${reply.user.image}`}
+              alt={`${reply.user.name} 프로필 이미지`}
+              width="32"
+              height="32"
+            />
+          )}
           <Link href="" className="text-orange-400">{ reply.user.name }</Link>
         </div>
         <time className="text-gray-500" dateTime={reply.createdAt}>{ reply.createdAt }</time>
@@ -1774,7 +1775,7 @@ export default function CommentNew({ _id }: { _id: string }) {
 
   ```ts
   ...
-  images: { ... },
+  images: { ... }
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb', // 서버액션에 전달하는 바디 크기(기본은 1MB)
@@ -1924,6 +1925,11 @@ export default function CommentNew({ _id }: { _id: string }) {
         { redirect && (
           <div className="text-center py-4">
             <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">로그인이 필요한 서비스입니다.</h3>
+          </div>
+        ) }
+        { userState?.ok === 0 && (
+          <div className="text-center py-4">
+            <p className="text-red-500 dark:text-red-400">{userState.message}</p>
           </div>
         ) }
         <form action={ formAction }>
@@ -2078,12 +2084,15 @@ export default function CommentNew({ _id }: { _id: string }) {
       { user ? (
         <form onSubmit={ handleLogout }>
           <p className="flex items-center">
-            <Image 
-              className="w-8 h-8 object-cover rounded-full mr-2" 
-              src={user.image ? `${API_URL}/${user.image}` : '/images/front-end.png'  }
-              width="32"
-              height="32"
-              alt={`${user.name} 프로필 이미지`} />
+            <{ user.image && (
+              <Image 
+                className="w-8 h-8 object-cover rounded-full mr-2" 
+                src={`${API_URL}/${user.image}`}
+                width="32"
+                height="32"
+                alt={`${user.name} 프로필 이미지`}
+              />
+            )}
             {user.name}님 :)
             <button type="submit" className="bg-gray-900 py-1 px-2 text-sm text-white font-semibold ml-2 hover:bg-amber-400 rounded">로그아웃</button>
           </p>
@@ -2390,9 +2399,10 @@ export default function CommentNew({ _id }: { _id: string }) {
 
   ```ts
   export async function createPost(state: ApiRes<Post> | null, formData: FormData): ApiResPromise<Post> {
+    const accessToken = formData.get('accessToken');
     ...
     'Client-Id': CLIENT_ID,
-    'Authorization': `Bearer ${body.accessToken}`,
+    'Authorization': `Bearer ${accessToken}`,
     ...
   }
   ```
@@ -2934,6 +2944,1379 @@ export default function CommentNew({ _id }: { _id: string }) {
 * 댓글 삭제 테스트
 
 ## 4.18 전체 기능 테스트
-* http://localhost:3000
+- http://localhost:3000 접속
+
+# 5 Step 04 - 소셜 로그인
+
+* workspace/ch11-skeleton 폴더에서 실행
+
+  ```sh
+  # lion-board-03/.next 폴더 삭제
+  rm -rf lion-board-03/.next
+  # lion-board-03 폴더를 복사해서 lion-board-04 폴더 생성
+  cp -r lion-board-03 lion-board-04
+  ```
+
+* lion-board-04/src/components/common/Header.tsx 파일 수정
+  - `라이언 보드 v.03` -> `라이언 보드 v.04`
+
+## 5.1 인증과 인가
+
+### 5.1.1 Authentication (인증)
+
+#### 인증이란?
+* 사용자의 신원을 확인하는 과정
+* 시스템에 접근하려는 사용자가 누구인지 검증
+* 로그인 과정이 대표적인 인증 과정
+
+#### 대표적인 인증 방식
+
+##### 로그인 (이메일 + 비밀번호)
+- 일반적인 웹 애플리케이션의 인증 방법
+- 사용자가 직접 계정 정보를 입력하여 로그인
+
+#### OAuth/OIDC (OpenID Connect)
+- 소셜 로그인: 구글, 네이버, 카카오, GitHub 등
+- Single Sign-On(SSO): 한 번 로그인으로 여러 서비스 이용
+- 외부 인증 공급자의 계정을 활용
+
+#### 비밀번호 없는 토큰 기반 인증
+- 매직 링크: 일회성 이메일 링크를 통한 로그인
+- SMS 인증: 휴대폰으로 전송된 링크나 코드 사용
+- 비밀번호 재설정과 유사한 방식
+
+#### Passkeys/WebAuthn
+- 생체 인식: 지문, 얼굴 인식 등
+- 하드웨어 키: 물리적 보안 키 사용
+- 매우 안전하지만 구현이 복잡
+
+### 5.1.2 Authorization (인가)
+
+#### 인가란?
+* 인증받은 사용자가 특정 작업을 수행할 수 있는지 권한을 확인하는 과정
+* 이미 로그인한 사용자가 어떤 기능을 사용할 수 있는지 결정
+* 사용자의 역할(Role)과 권한(Permission)에 따라 접근 제어
+
+#### 인가의 실제 예시
+
+##### 공개 권한 (Public Access)
+- 게시물 목록, 상세 조회는 누구나 가능
+- 상품 목록 보기, 공지사항 읽기
+
+##### 소유자 권한 (Owner Permission)
+- 게시물 수정, 삭제는 본인의 게시물에 한해서만 가능
+- 본인 프로필 수정, 본인 주문 내역 조회
+
+##### 역할 기반 권한 (Role-based Access)
+- 판매 회원만 상품 등록 가능
+- 관리자만 사용자 관리 기능 접근 가능
+- 일반 회원은 구매만, 판매 회원은 판매 기능도 사용
+
+#### 구현 방식
+- Next.js 미들웨어: 라우트 접근 전 권한 검사
+- API 가드: 각 API 엔드포인트에서 권한 확인
+- 클라이언트 사이드: 사용자 역할에 따른 조건부 렌더링
+- JWT 토큰: 사용자 정보와 권한 정보를 토큰에 포함
+
+## 5.2 Auth.js
+
+### 5.2.1 Auth.js 개요
+
+#### Auth.js란?
+* 오픈소스 기반의 인증 솔루션
+  - Next.js, SvelteKit, SolidStart 등 다양한 프레임워크 지원
+  - 예전에는 NextAuth.js 였다가 5.0부터 Auth.js로 명칭 변경
+  - TypeScript로 작성되어 타입 안정성 제공
+
+### 5.2.2 주요 특징
+#### 다양한 인증 방식 지원
+  - OAuth 2.0 (구글, GitHub, 페이스북, 카카오 등)
+  - OpenID Connect (OIDC)
+  - 이메일/비밀번호 인증 (Credentials)
+  - 매직 링크 (Email)
+  - WebAuthn (생체 인식)
+
+#### 보안 우선 설계
+  - JWT 토큰 자동 암호화
+  - CSRF 공격 방지
+  - 안전한 쿠키 관리
+  - 세션 고정 공격 방지
+
+#### 개발자 친화적
+  - 복잡한 OAuth 플로우를 간단한 설정으로 처리
+  - 커스터마이징 가능한 콜백 함수
+  - 다양한 데이터베이스 어댑터 지원
+  - 자동 HTTPS 리다이렉트
+
+#### Next.js와의 완벽한 통합
+* App Router 지원
+  - 서버 컴포넌트에서 세션 정보 접근
+  - 미들웨어를 통한 라우트 보호
+  - API 라우트 핸들러 자동 생성
+
+* SSR/SSG 호환
+  - 서버 사이드에서 인증 상태 확인
+  - 하이드레이션 미스매치 방지
+  - SEO 친화적 인증 페이지
+
+### 5.2.3 지원하는 인증 제공자 (Providers)
+#### 소셜 로그인
+- Google, GitHub, Facebook, Twitter
+- 카카오, 네이버, Discord, Apple
+- LinkedIn, Microsoft, Amazon 등
+
+#### 자체 인증
+- 이메일/비밀번호 (Credentials)
+- 매직 링크 (Email)
+- SMS 인증
+
+#### 고급 인증
+- WebAuthn (생체 인식, 하드웨어 키)
+- SAML (엔터프라이즈)
+- LDAP/Active Directory
+
+### 5.2.4 참고 링크
+- 공식 사이트: <https://authjs.dev>
+- Next.js 설치 가이드: <https://authjs.dev/getting-started/installation?framework=Next.js>
+- 한국어 가이드: <https://www.heropy.dev/p/MI1Khc>
+
+### 5.2.5 Auth.js 설치 및 설정
+
+#### 패키지 설치
+```sh
+npm install next-auth@beta
+```
+
+#### AUTH_SECRET 환경 변수 생성
+* 프로젝트 루트에서 실행하면 .env.local 파일에 토큰을 인증할 때 사용하는 키 값인 AUTH_SECRET 환경변수가 생성됨
+
+  ```sh
+  npx auth secret
+  # openssl rand -base64 33 명령으로 생성하는 효과
+  ```
+
+  - 예시: ```AUTH_SECRET="kNTzz+gZVlOAPZJ/LWCqAj7U5lNuf6a0W3pnzUR1mN0=" # Added by `npx auth`. Read more: https://cli.authjs.dev```
+
+#### Auth.js의 타입 확장
+- Auth.js에서 정의된 User, Session, JWT 타입에 추가 타입을 정의해서 확장
+- 프로젝트 루트에 auth.d.ts 파일 생성
+  - *.d.ts 파일에 정의한 타입은 import 없이 사용가능
+  - 주로 라이브러리의 타입을 확장할 때 사용
+
+  ```ts
+  export declare module '@auth/core/types' {
+    interface User {
+      id?: string;
+      type?: string;
+      accessToken?: string;
+      refreshToken?: string;
+    }
+
+    interface Session {
+      accessToken?: string;
+      refreshToken?: string;
+    }
+  }
+
+  export declare module '@auth/core/jwt' {
+    interface JWT {
+      id?: string;
+      type?: string;
+      accessToken?: string;
+      refreshToken?: string;
+    }
+  }
+  ```
+
+#### 누락된 타입 추가
+- loginType에 `naver` 추가
+- src/types/user.ts 수정
+
+  ```ts
+  export interface User {
+    ...
+    loginType?: 'email' | 'kakao' | 'google' | 'github' | 'naver', // 로그인 방식
+    ...
+  ```
+
+### 5.2.6 Auth.js 구성 파일 생성
+#### src/auth.ts 파일 생성
+```ts
+import NextAuth from "next-auth";
+import { createUserWithOAuth, loginWithOAuth } from "@/data/actions/user";
+import { OAuthUser, User } from "@/types";
+
+/**
+ * Authjs 설정
+ * @description 
+ * 인증 제공자, 세션 전략, 콜백 함수 등을 설정하고
+ * handlers, signIn, signOut, auth 함수를 내보냅니다.
+ */
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  /** 
+   * 배포시 현재 호스트를 신뢰하도록 설정
+   * AUTH_TRUST_HOST=true 환경변수와 동일한 효과
+   */
+  trustHost: true,
+  
+  /**
+   * 인증 제공자 설정
+   * @description Google, GitHub, Kakao, Naver OAuth 제공자와 Credentials(email/password) 제공자를 설정
+   */
+  providers: [
+
+  ],
+  /**
+   * 인증 과정에서 호출되는 콜백 함수들
+   * @description 로그인, JWT 토큰 생성, 세션 생성, 리디렉션 처리 콜백
+   */
+  callbacks: {
+    /**
+     * 로그인 처리 콜백
+     * @param {Object} params - 로그인 콜백 파라미터
+     * @param {Object} params.user - authorize()가 리턴한 사용자 객체
+     * @param {Object} params.account - provider 정보
+     * @param {Object} params.profile - OAuth 제공자가 반환한 사용자 프로필 정보
+     * @param {Object} params.credentials - authorize()에 전달된 로그인 정보
+     * @returns {Promise<boolean>} 로그인 처리 계속 여부
+     * @description 
+     * 로그인 처리를 계속 할지 여부 결정. OAuth 로그인시 자동 회원가입 및 로그인 처리를 수행.
+     * true를 반환하면 로그인 처리를 계속하고, false를 반환하거나 오류를 던지면 로그인 흐름을 중단.
+     */
+    async signIn({ user, account, profile, credentials }){
+      console.log(user, account, profile, credentials);
+      switch(account?.provider){
+        case 'credentials':
+          console.log('id/pwd 로그인', user);
+          break;
+        case 'kakao':
+        case 'naver':
+        case 'google':
+        case 'github':
+          console.log('OAuth 로그인', user);
+          // TODO OAuth 인증이 완료된 후 자동으로 회원 가입을 하고 로그인 처리
+
+          
+          break;
+      }
+      return true;
+    },
+
+    /**
+     * JWT 토큰 생성 콜백
+     * @param {Object} params - JWT 콜백 파라미터
+     * @param {Object} params.token - 기존 JWT 토큰 객체
+     * @param {Object} params.user - 최초 로그인시에만 전달되는 사용자 객체
+     * @returns {Promise<Object>} 업데이트된 JWT 토큰 객체
+     * @description 
+     * 로그인에 성공한 회원 정보로 token 객체 설정.
+     * 최초 로그인시 user 객체가 전달되며, 로그인 이후 세션 요청시에는 user 객체 없이 호출됨.
+     */
+    async jwt({ token, user }){
+      if (user) {
+        token.id = user.id;
+        token.type = user.type;
+        token.accessToken = user.accessToken;
+        token.refreshToken = user.refreshToken;
+      }
+      return token;
+    },
+
+    /**
+     * 세션 생성 콜백
+     * @param {Object} params - 세션 콜백 파라미터
+     * @param {Object} params.session - 기본 세션 객체
+     * @param {Object} params.token - JWT 토큰 객체
+     * @returns {Promise<Object>} 업데이트된 세션 객체
+     * @description 
+     * 클라이언트에서 세션 정보 요청시 호출되며, token 객체 정보로 session 객체를 설정함.
+     */
+    async session({ session, token }){
+      session.user.id = token.id as string;
+      session.user.type = token.type as string;
+      session.user.accessToken = token.accessToken;
+      session.user.refreshToken = token.refreshToken;
+      return session;
+    },
+  },
+});
+```
+
+#### NextAuth()의 인자값
+* providers: Credentials, Google, GitHub 등의 인증 공급자를 지정
+* session: 세션 관리 방식을 지정
+* pages: 사용자 정의 페이지 경로를 지정하며, 로그인 페이지의 기본값은 /auth/signin
+* callbacks: 인증 및 세션 관리 중 호출되는 각 핸들러를 지정
+  - signIn: 사용자 로그인을 시도했을 때 호출되며, true를 반환하면 로그인 성공, false를 반환하면 로그인 실패로 처리
+  - redirect: 페이지 이동 시 호출되며, 리디렉션될 URL을 반환하도록 작성
+  - jwt: JWT가 생성되거나 업데이트될 때 호출되며, 반환하는 값은 암호화되어 쿠키에 저장됨
+  - session: jwt 콜백이 반환하는 token을 받아, 세션이 확인될 때마다 호출되며, 반환하는 값은 클라이언트에서 확인할 수 있음(2번 이상 호출될 수 있음)
+
+#### callbacks 핸들러 호출 순서
+* 로그인 시: signIn > redirect > jwt > session
+* 세션 업데이트 시: jwt > session
+* 세션 확인 시: session
+
+#### NextAuth()의 리턴값
+* handlers: 프로젝트의 인증 관리를 위한 API 라우트(GET, POST 함수) 객체
+* signIn: 사용자 로그인을 시도하는 비동기 함수
+* signOut: 사용자 로그아웃을 시도하는 비동기 함수
+* auth: 세션 정보를 반환하는 비동기 함수(서버 컴포넌트에서 사용)
+
+### 5.2.7 API 라우트 핸들러 작성
+- Auth.js가 제공하는 라우트 핸들러를 이용해서 OAuth 2.0 인증 처리
+- src/app/api/auth/[...nextauth]/route.ts 파일 생성
+
+  ```ts
+  import { handlers } from "@/auth";
+
+  export const { GET, POST } = handlers;
+  ```
+
+### 5.2.8 OAuth 인증 후 처리
+#### 5.2.8.1 자동 회원 가입
+- OAuth 인증이 완료되면 자동으로 회원 가입을 하고 API 서버에 로그인 처리
+
+##### 타입 정의
+- src/types/user.ts에 추가
+
+  ```ts
+  // auth provider 인증 후 자동 회원 가입에 사용되는 타입
+  // 필수: type, loginType, extra.providerAccountId
+  // 선택: name, email, image
+  export type OAuthUser =
+    Required<Pick<User, 'type' | 'loginType'>> &
+    Partial<Pick<User, 'name' | 'email' | 'image'>> & {
+      extra: {
+        providerAccountId: string;
+      };
+    };
+  ```
+
+##### OAuth 인증후 호출할 회원 가입 함수 정의
+- API 문서 참조: <https://fesp-api.koyeb.app/market/apidocs/#/%ED%9A%8C%EC%9B%90/post_users_signup_oauth>
+- src/data/actions.user.ts에 추가
+
+  ```ts
+  import { OAuthUser } from "@/types";
+  ...
+
+  /**
+   * OAuth 인증 후 자동 회원가입 함수
+   * @param user - OAuth 사용자 정보 객체
+   * @returns 회원가입 결과 응답 객체
+   * @description
+   * OAuth 제공자 인증 후 자동으로 회원가입을 처리합니다.
+   */
+  export async function createUserWithOAuth(user: OAuthUser): ApiResPromise<User> {
+    const res = await fetch(`${API_URL}/users/signup/oauth`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Client-Id': CLIENT_ID,
+      },
+      body: JSON.stringify(user)
+    });
+
+    return res.json();
+  }
+  ```
+
+#### 5.2.8.2 API 서버 로그인
+- OAuth 제공자로 인증된 사용자를 API 서버에 로그인 처리
+- API 문서 참조: <https://fesp-api.koyeb.app/market/apidocs/#/%ED%9A%8C%EC%9B%90/post_users_login_with>
+
+##### API 서버에 로그인하는 함수 정의
+- src/data/actions/user.ts에 추가
+
+  ```ts
+  /**
+   * OAuth 제공자로 인증된 사용자를 API 서버에 로그인 처리
+   * @param providerAccountId - OAuth 제공자 계정 ID
+   * @returns 로그인 결과 응답 객체
+   * @description
+   * OAuth 제공자 계정 ID를 사용하여 기존 사용자를 로그인 처리합니다.
+   */
+  export async function loginWithOAuth(providerAccountId: string): ApiResPromise<User> {
+    const res = await fetch(`${API_URL}/users/login/with`, {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json',
+        'Client-Id': CLIENT_ID,
+      },
+      body: JSON.stringify({ providerAccountId }),
+    });
+    return res.json();
+  }
+  ```
+
+#### 5.2.8.3 인증 후 회원가입과 로그인 실행
+- src/auth.ts 파일에 추가
+
+  ```ts
+  import { createUserWithOAuth, loginWithOAuth } from "@/data/actions/user";
+  import { OAuthUser, User } from "@/types";
+  ```
+  
+- src/auth.ts 파일의 `// TODO OAuth 인증이 완료된 후 자동으로 회원 가입을 하고 로그인 처리` 아래에 추가
+
+  ```ts
+  let userInfo: User | null = null;
+  try{
+    // 자동 회원 가입
+    const newUser: OAuthUser = {
+      type: 'user',
+      loginType: account.provider,
+      name: user.name || undefined,
+      email: user.email || undefined,
+      image: user.image || undefined,
+      // 인증 제공자에서 받은 정보를 extra 객체에 저장
+      extra: { ...profile, providerAccountId: account.providerAccountId },
+    };
+
+    // 이미 가입된 회원이면 회원가입이 되지 않고 에러를 응답하므로 무시하면 됨
+    await createUserWithOAuth(newUser);
+    
+    // 자동 로그인
+    const resData = await loginWithOAuth(account.providerAccountId);
+    if(resData.ok){
+      userInfo = resData.item;
+      console.log(userInfo);
+    }else{ // API 서버의 에러 메시지 처리
+      throw new Error(resData.message);
+    }
+  }catch(err){
+    console.error(err);
+    throw err;
+  }
+  
+  user.id = String(userInfo._id);
+  user.type = userInfo.type;
+  user.accessToken = userInfo.token!.accessToken;
+  user.refreshToken = userInfo.token!.refreshToken;
+  break;
+  ```
+
+### 5.2.9 Auth.js를 사용하는 로그인 함수 정의
+- 사용자가 카카오 로그인, 구글 로그인 등의 로그인 버튼 클릭 시 호출하는 함수 작성
+- src/data/actions/user.ts에 추가
+
+  ```ts
+  import { signIn } from "@/auth";
+  ...
+
+  /**
+   * Auth.js 기반 로그인 함수
+   * @param provider - 로그인 제공자 ('credentials', 'google', 'github', 'naver', 'kakao')
+   * @param formData - 로그인 폼 데이터(FormData 객체)
+   * @returns Promise<void>
+   * @description
+   * credentials 로그인 시 email/password를 사용하고, OAuth 로그인 시 provider만 사용합니다.
+   */
+  export async function loginWithAuthjs(provider: string, formData: FormData){
+    // 로그인 후에 이동해야 할 페이지(redirect 파라미터) 추출
+    const redirectTo = formData.get('redirect') as string || '/';
+
+    await signIn(provider, { redirectTo });
+  }
+  ```
+
+### 5.2.10 로그인 후 사용자 정보 출력
+#### SessionProvider 추가
+- Auth.js의 useSession()으로 로그인 한 사용자 정보가 있는 Session 객체를 꺼내기 위해서 추가
+- 이후의 모든 코드는 zustand의 Store를 사용할 필요 없이 Session에 저장되어 있는 사용자 정보를 이용
+  - 클라이언트 컴포넌트일 경우 useSession() 사용
+  - 서버 컴포넌트일 경우 auth.ts에서 export 한 auth() 사용
+- app/layout.tsx에 `<SessionProvider />` 추가
+
+  ```tsx
+  import { SessionProvider } from 'next-auth/react';
+  ...
+  return (
+    ...
+    <SessionProvider>
+      <Header />
+      { children }
+      <Footer />
+    </SessionProvider>
+    ...
+  );
+  ```
+
+#### 사용자 정보 컴포넌트 분리
+- src/components/common/UserInfo.tsx 파일 생성
+- src/components/common/Header.tsx 파일의 사용자 정보 출력 영역을 잘라내서 UserInfo.tsx에 추가
+
+  ```tsx
+  'use client';
+
+  import { Button } from "@/components/ui/Button";
+  import { LinkButton } from "@/components/ui/LinkButton";
+  import { signOut, useSession } from "next-auth/react";
+  import Image from "next/image";
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  export default function UserInfo() {
+    // Auth.js를 사용한 세션 정보 관리
+    const { data: session, status } = useSession();
+    const user = session?.user;
+
+    /**
+     * 로그아웃 처리 함수
+     * signOut을 호출하여 로그아웃 진행
+     * 메인 페이지로 리다이렉트
+     */
+    const handleLogout = async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      await signOut({ redirect: true, callbackUrl: '/' });
+      alert('로그아웃 되었습니다.');
+    };
+
+    // 사용자 정보 로딩 중일 때 빈 화면 표시
+    if (status === "loading") {
+      return ;
+    }
+
+    return (
+      <>
+        { user ? (
+          <form onSubmit={ handleLogout }>
+            <p className="flex items-center">
+              { user.image && (
+                <Image 
+                  className="w-8 h-8 object-cover rounded-full mr-2" 
+                  src={user.image?.startsWith('http') ? user.image : `${API_URL}/${user.image}`}
+                  width="32"
+                  height="32"
+                  alt={`${user.name} 프로필 이미지`}
+                />
+              )}
+              {user.name}님 :)
+              <Button type="submit" size="sm" bgColor="gray">로그아웃</Button>
+            </p>
+          </form>
+        ) : (
+          <div className="flex justify-end">
+            <LinkButton href="/login" size="sm" bgColor="orange">로그인</LinkButton>
+            <LinkButton href="/signup" size="sm" bgColor="gray">회원가입</LinkButton>
+          </div>
+        )}
+      </>
+    );
+  }
+  ```
+
+- src/components/common/Header.tsx 파일 수정
+
+  ```tsx
+  import UserInfo from "@/components/common/UserInfo";
+  import Image from "next/image";
+  import Link from "next/link";
+
+  export default function Header() {
+
+    return (
+      ...
+      <UserInfo />
+      ...
+    );
+  }
+  ```
+
+#### 댓글 작성자 이미지 경로 수정
+- 소셜 로그인 후 전달받은 사용자 이미지는 절대 경로로 지정되어 있으므로 이미지 경로 수정
+- app/[boardType]/[_id]/CommentItem.tsx의 `<Image>` 컴포넌트의 src 값 수정
+  - ```src={`${API_URL}/${reply.user.image}`}``` -> ```src={reply.user.image?.startsWith('http') ? reply.user.image : `${API_URL}/${reply.user.image}`}```
+
+## 5.3 카카오 로그인
+- Auth.js Kakao Provider: <https://authjs.dev/getting-started/providers/kakao>
+- 카카오 로그인 개발가이드: <https://developers.kakao.com/docs/latest/ko/kakaologin/common>
+
+### 5.3.1 키발급
+#### 카카오 애플리케이션 등록
+- <https://developers.kakao.com/console/app> > [앱 생성] 선택
+
+- 앱 이름: 라이언 보드
+- 회사명: FEBC 13
+- 카테고리: 소셜 네트워킹
+- 약관 동의 체크
+- 저장
+
+#### 플랫폼 등록
+- 앱 목록에서 [라이언 보드] 선택
+- 좌측 메뉴의 [앱] > [일반] 클릭
+  - [앱 키] > [JavaScript 키] 복사
+    - 이후에 .env의 AUTH_KAKAO_ID 값으로 사용
+  - [플랫폼] > [Web] > [Web 플랫폼 등록] 클릭
+    - 사이트 도메인: http://localhost:3000 > [저장]
+
+#### 카카오 로그인 설정
+- 좌측 메뉴의 [제품 설정] > [카카오 로그인] > [일반] 클릭
+  - [사용 설정] > [상태] 옆의 [OFF] 토글 버튼 클릭 > [활성화]
+  - [리다이렉트 URI] > [리다이렉트 URI 등록] 클릭
+    - `http://localhost:3000/api/auth/callback/kakao` > [저장]
+  - [Client Secret] > [클라이언트 시크릿 발급] 클릭 > [발급]
+    - 코드값 복사
+      - 이후에 .env의 AUTH_KAKAO_SECRET 값으로 사용
+  - [Client Secret] > [상태] > [설정] > [사용함] > [저장]
+
+- 좌측 메뉴의 [제품 설정] > [카카오 로그인] > [동의항목] 클릭
+  - [개인정보] > 닉네임 [설정] 클릭
+    - 필수 동의 선택
+    - 동의 목적: 화면에 사용자 닉네임 표시
+    - [저장]
+  - [개인정보] > 프로필 사진 [설정] 클릭
+    - 선택 동의 선택
+    - 동의 목적: 화면에 사용자 이미지 표시
+    - [저장]
+  
+### 5.3.2 카카오 로그인 기능 구현
+#### 5.3.2.1 src/.env에 클라이언트 키 추가
+- 이전 단계에서 메모장에 복사한 JavaScript 키와 클라이언트 시크릿 코드값 추가
+- 예시
+
+    ```
+    AUTH_KAKAO_ID=aaabb12
+    AUTH_KAKAO_SECRET=033a8ef1eadf
+    ```
+
+#### 5.3.2.2 src/auth.ts에 Kakao provider 추가
+```ts
+...
+import KakaoProvider from "next-auth/providers/kakao";
+
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  providers: [
+    KakaoProvider,
+  ],
+  ...
+});
+```
+
+#### 5.3.2.3 로그인 페이지에 [카카오 로그인] 버튼 추가
+- src/app/(user)/login/LoginForm.tsx에 추가
+
+  ```tsx
+  import { loginWithAuthjs } from "@/data/actions/user";
+  ...
+  <div className="mt-10 flex justify-center items-center flex-wrap gap-3">
+    <Button type="submit">로그인</Button>
+    <Button type="submit" formAction={loginWithAuthjs.bind(null, 'kakao')}>카카오 로그인</Button>
+  </div>
+  <div className="mt-4 text-center">
+    <Link href="/signup" className="text-gray-800 hover:underline">회원가입</Link>
+  </div>
+  ```
+
+#### 5.3.2.4 프로필 이미지 경로 추가
+- next.config.ts에 외부 이미지 로딩시 필요한 설정 추가
+
+  ```ts
+  {
+    protocol: 'http',
+    hostname: '*.kakaocdn.net',
+    pathname: '**',
+  },
+  ```
+
+### 5.3.3 카카오 로그인 테스트
+- 로그인 완료 후에 헤더 영역에 회원 정보가 출력되는지 확인
+
+## 5.4 네이버 로그인
+- Auth.js Naver Provider: <https://authjs.dev/getting-started/providers/naver>
+- 네이버 로그인 개발가이드: <https://developers.naver.com/docs/login/devguide/devguide.md>
+
+### 5.4.1 키발급
+#### 네이버 애플리케이션 등록
+- https://developers.naver.com/apps/#/register
+
+- 애플리케이션 이름: 라이언 보드
+- 사용 API: 네이버 로그인
+  - 회원이름: 필수
+  - 연락처 이메일 주소: 필수
+  - 프로필 사진: 선택
+- 로그인 오픈 API 서비스 환경
+  - PC 웹
+    + 서비스 URL: http://localhost:3000
+    + 네이버 로그인 Callback URL: http://localhost:3000/api/auth/callback/naver
+- 서비스 이용 동의 체크 후 등록하기 클릭
+- Client ID, Client Secret 저장
+
+#### 멤버 관리
+- 검수가 완료되어야 서비스가 가능하지만 개발 단계에서는 등록된 계정에 한하여 테스트가 가능함
+- 내 애플리케이션 > 라이언 보드 > 멤버관리 탭 선택
+- 관리자 ID 등록: 애플리케이션 관리자를 추가로 3명 더 등록 가능(팀원 계정 등록)
+- 테스트 ID 등록: 네이버 로그인 테스트를 할 수 있는 계정 등록(애플리케이션 개설자나 관리자 계정은 기본으로 가능)
+
+### 5.4.2 네이버 로그인 기능 구현
+#### 5.4.2.1 src/.env에 클라이언트 키 추가
+- 예시
+
+  ```
+  AUTH_NAVER_ID=aaabb12
+  AUTH_NAVER_SECRET=033a8ef1eadf
+  ```
+
+#### 5.4.2.2 src/auth.ts에 Naver provider 추가
+```ts
+import NaverProvider from "next-auth/providers/naver";
+...
+providers: [
+  ...
+  /**
+   * 네이버 OAuth 제공자 설정
+   * @description 네이버 provider가 name을 반환하지 않으므로 직접 profile 변환 처리
+   */
+  NaverProvider({
+    profile(profile) {
+      console.log('네이버 profile', profile);
+      return {
+        id: profile.response.id,
+        name: profile.response.name,
+        email: profile.response.email,
+        image: profile.response.profile_image,
+      }
+    },
+  }),
+]
+```
+
+#### 5.4.2.3 로그인 페이지에 [네이버 로그인] 버튼 추가
+* src/app/(user)/login/LoginForm.tsx에 추가
+
+  ```tsx
+  <Button type="submit" formAction={loginWithAuthjs.bind(null, 'naver')}>네이버 로그인</Button>
+  ```
+
+#### 5.4.2.4 프로필 이미지 경로 추가
+- next.config.ts에 외부 이미지 로딩시 필요한 설정 추가
+
+  ```ts
+  {
+    protocol: 'https',
+    hostname: '*.pstatic.net',
+    pathname: '**',
+  },
+  ```
+
+### 5.4.3 네이버 로그인 테스트
+- 로그인 완료 후에 헤더 영역에 회원 정보가 출력되는지 확인
+
+## 5.5 구글 로그인
+* Auth.js Google Provider: <https://authjs.dev/getting-started/providers/google>
+
+### 5.5.1 키발급
+#### 구글 클라우드의 API 서비스로 이동
+* https://console.cloud.google.com
+* 프로젝트 생성
+* API 및 서비스로 이동
+  - https://console.cloud.google.com/apis
+* `OAuth 동의 화면` 선택
+* 시작하기
+
+#### 프로젝트 구성
+* 앱정보
+  - 앱이름: 프로젝트 이름
+  - 사용자 지원 이메일: google에 로그인한 계정 선택
+  - 다음
+* 대상
+  - `외부` 선택
+  - 다음
+* 연락처 정보
+  - google에 로그인한 계정의 이메일 입력
+  - 다음
+* 완료
+  - 동의에 체크
+  - 계속
+* 만들기
+
+#### 클라이언트 생성
+* Google 인증 플랫폼 > 클라이언트 > 클라이언트 만들기
+  * 애플리케이션 유형: 웹 애플리케이션
+  * 이름: 프로젝트 명
+  * 승인된 JavaScript 원본 > URI 추가
+    + http://localhost:3000
+  * 승인된 리디렉션 URI
+    + http://localhost:3000/api/auth/callback/google
+  * 만들기 클릭
+  * 메모장에 클라이언트 ID와 클라이언트 보안 비밀번호 복사
+    - 이후 .env 파일에 추가
+
+#### 데이터 액세스
+* Google 인증 플랫폼 > 데이터 액세스
+- `범위 추가 또는 삭제` 클릭
+  - 다음 항목에 체크
+    - .../auth/userinfo.email
+    - .../auth/userinfo.profile
+    - openid
+  - `업데이트` 클릭
+- 스크롤 가장 아래에 있는 `Save` 클릭
+
+### 5.5.2 구글 로그인 기능 구현
+#### 5.5.2.1 src/.env에 클라이언트 키 추가
+- 예시
+
+  ```
+  AUTH_GOOGLE_ID=abc123
+  AUTH_GOOGLE_SECRET=123ddd
+  ```
+
+#### 5.5.2.2 src/auth.ts에 Google provider 추가
+```ts
+import GoogleProvider from "next-auth/providers/google";
+...
+providers: [ 
+  ...
+  GoogleProvider,
+]
+```
+
+#### 5.5.2.3 로그인 페이지에 [구글 로그인] 버튼 추가
+* src/app/(user)/login/LoginForm.tsx에 추가
+
+  ```tsx
+  <Button type="submit" formAction={loginWithAuthjs.bind(null, 'google')}>구글 로그인</Button>
+  ```
+
+#### 5.4.2.4 프로필 이미지 경로 추가
+- next.config.ts에 외부 이미지 로딩시 필요한 설정 추가
+
+  ```ts
+  {
+    protocol: 'https',
+    hostname: '*.googleusercontent.com',
+    pathname: '**',
+  },
+  ```
+
+### 5.5.3 구글 로그인 테스트
+- 로그인 완료 후에 헤더 영역에 회원 정보가 출력되는지 확인
+
+## 5.6 깃허브 로그인
+* Auth.js Github Provider: <https://authjs.dev/getting-started/providers/github>
+
+### 5.6.1 키발급
+#### 깃허브 개발자 설정으로 이동
+* https://github.com/settings/developers
+
+* New OAuth App
+  - Application name: 라이언 보드
+  - Homepage URL: http://localhost:3000
+  - Authorization callback URL: http://localhost:3000/api/auth/callback/github
+  - Register application
+* 메모장에 Client ID, Client secrets 복사
+  - 이후 .env 파일에 추가
+
+### 5.6.2 깃허브 로그인 기능 구현
+#### 5.6.2.1 src/.env에 클라이언트 키 추가
+- 예시
+
+  ```
+  AUTH_GITHUB_ID=aaabb12
+  AUTH_GITHUB_SECRET=033a8ef1eadf
+  ```
+
+#### 5.6.2.2 src/auth.ts에 Google provider 추가
+```ts
+import GithubProvider from "next-auth/providers/github";
+...
+providers: [ 
+  ...
+  GithubProvider,
+]
+```
+
+#### 5.6.2.3 로그인 페이지에 [구글 로그인] 버튼 추가
+* src/app/(user)/login/LoginForm.tsx에 추가
+
+  ```tsx
+  <Button type="submit" formAction={loginWithAuthjs.bind(null, 'github')}>깃허브 로그인</Button>
+  ```
+
+#### 5.6.2.4 프로필 이미지 경로 추가
+- next.config.ts에 외부 이미지 로딩시 필요한 설정 추가
+
+  ```ts
+  {
+    protocol: 'https',
+    hostname: '*.githubusercontent.com',
+    pathname: '**',
+  },
+  ```
+
+### 5.6.3 깃허브 로그인 테스트
+- 로그인 완료 후에 헤더 영역에 회원 정보가 출력되는지 확인
+
+## 5.7 email/password 로그인
+- Auth.js Credentials Provider: <https://authjs.dev/getting-started/providers/credentials>
+
+- 기존 이메일 기반 로그인 방식을 수정해서 Auth.js와 함께 사용할 수 있도록 구성
+
+### 5.7.1 Auth.js를 사용하는 로그인 함수 정의
+- 사용자가 email/password를 입력한 후 로그인 버튼 클릭 시 호출하는 함수 작성
+- src/data/actions/user.ts에 추가
+
+  ```ts
+  import { redirect } from "next/navigation";
+  ...
+
+  /**
+   * Auth.js 기반 Credentials 로그인 함수
+   * @param state - 이전 상태(사용하지 않음)
+   * @param formData - 로그인 폼 데이터(FormData 객체)
+   * @returns 로그인 결과 응답 객체
+   * @description
+   * Auth.js의 credentials 제공자를 사용하여 로그인을 처리합니다.
+   */
+  export async function loginWithCredentials(state: ApiRes<User> | null, formData: FormData): ApiResPromise<User> {
+    // 로그인 후에 이동해야 할 페이지(redirect 파라미터) 추출
+    const redirectTo = formData.get('redirect') as string || '/';
+
+    try{
+      await signIn('credentials', {
+        email: formData.get('email') || '',
+        password: formData.get('password') || '',
+        redirect: false
+      });
+    }catch(err){
+      if(err instanceof Error){
+        return err.cause as ApiRes<User>;
+      }
+    }
+    redirect(`${redirectTo}?refresh=1`); // 로그인 후에 Session 업데이트를 위한 flag
+  }
+  ```
+
+### 5.7.2 src/auth.ts에 Credentials provider 추가
+```ts
+import CredentialsProvider from "next-auth/providers/credentials";
+...
+providers: [ 
+  ...
+  /**
+   * 이메일/비밀번호 인증 제공자 설정
+   * @description 사용자가 입력한 credentials을 검증하여 로그인 처리
+   */
+  CredentialsProvider({
+    credentials: {
+      email: {},
+      password: {},
+    },
+    /**
+     * 실제 인증 로직을 처리하는 함수
+     * @param credentials - signIn 함수에서 전달받은 사용자 인증 정보
+     * @returns 유효한 사용자 객체 또는 에러 발생
+     * @description 사용자 검증 후 유효한 사용자 객체를 반환하거나 에러를 발생시킴
+     */
+    async authorize(credentials) { // credentials: 서버 액션에서 호출한 signIn('credentials', 사용자 정보) 메서드의 두번째 인수(사용자 정보)
+      const result = await login(null, credentials as User);
+      if(!result.ok){
+        throw new CredentialsSignin(result.message, { cause: result });
+      }
+
+      const user = result.item;
+      return {
+        id: String(user._id),
+        email: user.email,
+        name: user.name,
+        type: user.type,
+        image: user.image,
+        accessToken: user.token?.accessToken,
+        refreshToken: user.token?.refreshToken,
+      };
+    },
+  })
+]
+```
+
+### 5.7.3 로그인 페이지 구성
+- 로그인 후 돌아갈 페이지가 있을 경우 `로그인이 필요한 서비스입니다.` 메시지 추가
+- app/(user)/login/page.tsx 수정
+
+```tsx
+...
+
+interface LoginPageProps {
+  searchParams: Promise<{
+    redirect: string;
+  }>;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { redirect } = await searchParams;
+
+  return (
+    ...
+    { redirect && (
+      <div className="text-center py-4">
+        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">로그인이 필요한 서비스입니다.</h3>
+      </div>
+    ) }
+    <LoginForm />
+    ...
+  );
+}
+```
+
+### 5.7.4 zustand의 상태 관리 기능 제거
+- Auth.js와 통합했으므로 더이상 zustand의 User 관련 상태 관리 기능이 필요하지 않음
+- app/(user)/login/LoginForm.tsx 수정
+
+  ```tsx
+  'use client';
+
+  import { Button } from "@/components/ui/Button";
+  import Link from "next/link";
+  import { loginWithAuthjs, loginWithCredentials } from "@/data/actions/user";
+  import { useActionState } from "react";
+
+  export default function LoginForm({ redirect }: { redirect: string }) {
+    const [ userState, formAction ] = useActionState(loginWithCredentials, null);
+
+    return (
+      <>
+        ...
+        <form action={ formAction }>
+          <input type="hidden" name="redirect" value={redirect || ''} />
+          ...
+        </form>
+      </>
+    );
+  }
+  ```
+
+### 5.7.5 로그인 후 화면 갱신
+- 로그인 후에 useSession() 호출 시 Session이 새로고침 되지 않아서 사용자 정보를 꺼낼 수 없으므로 강제로 업데이트 수행
+- 소셜 로그인의 경우 외부 사이트에서 리다이렉트 되어서 돌아오므로 자연스럽게 화면 갱신이 됨
+- src/components/common/UserInfo.tsx에 추가
+
+  ```tsx
+  import { usePathname, useRouter, useSearchParams } from "next/navigation";
+  import { useEffect } from "react";
+
+  ...
+
+  export default function UserInfo() {
+    // Auth.js를 사용한 세션 정보 관리
+    const { data: session, status, update } = useSession();
+    const user = session?.user;
+
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
+    // 로그인 후 새로고침 처리 (컴포넌트 렌더링 시)
+    const refresh = searchParams.get('refresh');
+
+    /**
+     * 로그인 후 리다이렉트 처리 및 세션 업데이트
+     * refresh 파라미터가 있으면 URL에서 제거하고 세션을 강제 업데이트
+     */
+    useEffect(() => {
+      if (refresh) {
+        // 현재 경로에서 refresh 파라미터만 제거
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('refresh');
+        const newUrl = newSearchParams.toString() ? `${pathname}?${newSearchParams.toString()}` : pathname;
+        router.replace(newUrl);
+        // Auth.js 세션 강제 업데이트
+        update();
+      }
+    }, [refresh]);
+
+    ...
+
+    return(
+      ...
+    );
+  }
+  ```
+
+### 5.7.6 이메일 로그인 테스트
+- 로그인 완료 후에 헤더 영역에 회원 정보가 출력되는지 확인
+
+## 5.8 accessToken 제거
+- 로그인한 사용자 정보는(JWT) 쿠키에 암호화 된 상태로 클라이언트 컴폰넌트에서 Next.js 서버로 전송되기 때문에 요청 헤더에 accessToken을 보낼 필요가 없음
+- Next.js 서버 컴포넌트에서는 요청 헤더의 JWT 토큰에서 사용자 정보를 추출하고 API 서버에 전달
+
+### 5.8.1 게시물 등록
+- src/data/actions/post.ts 수정
+
+  ```ts
+  import { auth } from "@/auth";
+  ...
+  export async function createPost(state: ApiRes<Post> | null, formData: FormData): ApiResPromise<Post> {
+    // FormData를 일반 Object로 변환
+    const body = Object.fromEntries(formData.entries());
+    const session = await auth(); // 로그인 된 사용자 정보 가져오기
+    const accessToken = session?.user?.accessToken;
+    ...
+    'Authorization': `Bearer ${accessToken}`,
+    ...
+  }
+  ```
+
+- app/[boardType]/[_id]/new/RegistForm.tsx 수정
+
+```tsx
+'use client';
+import { Button } from "@/components/ui/Button";
+import { LinkButton } from "@/components/ui/LinkButton";
+import { createPost } from "@/data/actions/post";
+import { useActionState } from "react";
+
+export default function RegistForm({ boardType }: { boardType: string }) {
+  const [ state, formAction, isLoading ] = useActionState(createPost, null);
+  console.log(isLoading, state);
+  return (
+    <>
+      <form action={ formAction }>
+        <input type="hidden" name="type" value={ boardType } />
+        <div className="my-4">
+          ...
+        </div>
+        <div className="my-4">
+          ...
+        </div>
+        ...
+      </form>
+    </>
+  );
+}
+```
+
+### 5.8.2 게시물 수정
+- src/data/actions/post.ts 수정
+
+  ```ts
+  import { auth } from "@/auth";
+  ...
+  export async function updatePost(state: ApiRes<Post> | null, formData: FormData): ApiResPromise<Post> {
+    ...
+    // const accessToken = formData.get('accessToken');
+    const session = await auth(); // 로그인 된 사용자 정보 가져오기
+    const accessToken = session?.user?.accessToken;
+    ...
+  }
+  ```
+
+- app/[boardType]/[_id]/edit/EditForm.tsx 수정
+
+  ```tsx
+  'use client';
+  import { Post } from "@/types";
+  import { LinkButton } from "@/components/ui/LinkButton";
+  import { Button } from "@/components/ui/Button";
+  import { updatePost } from "@/data/actions/post";
+  import { useActionState } from "react";
+
+  export default function EditForm({ post }: { post: Post }) {
+    const [postState, formAction] = useActionState(updatePost, null);
+    return (
+      <form action={ formAction }>
+        <input type="hidden" name="_id" value={post._id} />
+        <input type="hidden" name="type" value={post.type} />
+        <div className="my-4">
+        ...
+      </form>
+    );
+  }
+  ```
+
+### 5.8.3 게시물 삭제
+- src/data/actions/post.ts 수정
+
+  ```ts
+  import { auth } from "@/auth";
+  ...
+  export async function deletePost(state: ApiRes<Post> | null, formData: FormData): ApiResPromise<Post> {
+    ...
+    // const accessToken = formData.get('accessToken');
+    const session = await auth(); // 로그인 된 사용자 정보 가져오기
+    const accessToken = session?.user?.accessToken;
+    ...
+  }
+  ```
+
+- app/[boardType]/[_id]/DeleteForm.tsx 수정
+  - `import useUserStore from "@/zustand/userStore";` 삭제
+  - `const { user } = useUserStore();` 삭제
+  - `<input type="hidden" name="accessToken" value={user?.token?.accessToken ?? ''} />` 삭제
+
+### 5.8.4 댓글 등록
+- src/data/actions/post.ts 수정
+
+  ```ts
+  import { auth } from "@/auth";
+  ...
+  export async function createReply(state: ApiRes<PostReply> | null, formData: FormData): ApiResPromise<PostReply> {
+    ...
+    // const accessToken = formData.get('accessToken');
+    const session = await auth(); // 로그인 된 사용자 정보 가져오기
+    const accessToken = session?.user?.accessToken;
+    ...
+  }
+  ```
+
+- app/[boardType]/[_id]/CommentNew.tsx 수정
+
+  ```tsx
+  'use client';
+  import { LinkButton } from "@/components/ui/LinkButton";
+  import { createReply } from "@/data/actions/post";
+  import { useSession } from "next-auth/react";
+  import { useActionState } from "react";
+
+  export default function CommentNew({ _id }: { _id: string }) {
+
+    const [state, formAction, isLoading] = useActionState(createReply, null);
+    console.log(isLoading, state);
+
+    const { data: session } = useSession();
+    const user = session?.user;
+
+    return (
+      ...
+      <form action={ formAction }>
+        <input type="hidden" name="_id" value={_id} />
+        <div className="mb-4">
+          ...
+        </div>
+        ...
+      </form>
+      ...
+    );
+  }
+  ```
+
+### 5.8.5 댓글 삭제
+- src/data/actions/post.ts 수정
+
+  ```ts
+  import { auth } from "@/auth";
+  ...
+  export async function deleteReply(state: ApiRes<PostReply> | null, formData: FormData): ApiResPromise<PostReply> {
+    ...
+    // const accessToken = formData.get('accessToken');
+    const session = await auth(); // 로그인 된 사용자 정보 가져오기
+    const accessToken = session?.user?.accessToken;
+    ...
+  }
+  ```
+
+- app/[boardType]/[_id]/CommentDeleteForm.tsx 수정
+  - `import useUserStore from "@/zustand/userStore";` 삭제
+  - `const { user } = useUserStore();` 삭제
+  - `<input type="hidden" name="accessToken" value={user?.token?.accessToken ?? ''} />` 삭제
+
+### 5.8.6 Button, LinkButton
+- src/components/ui/Button.tsx 수정
+
+  ```tsx
+  'use client';
+  import { useSession } from 'next-auth/react';
+  import { btnColor, btnSize, baseButtonClass, btnDisabled } from './buttonStyle';
+  ...
+  // Button 컴포넌트 정의
+  export const Button: React.FC<ButtonProps> = ({ children, type='button', bgColor='orange', size='md', className='', needLogin, ownerId, disabled, ...rest }) => {
+    const { data: session, status } = useSession(); // NextAuth 세션 사용
+    const user = session?.user;
+
+    // 로딩 중일 때는 버튼을 숨김
+    if (status === 'loading') return null;
+    
+    // 로그인 필요 & 로그인 안 된 경우 버튼 미노출
+    if (needLogin && !user) return null;
+    // ownerId가 전달될 때만 현재 로그인 사용자가 owner가 아니면 버튼 미노출
+    if (ownerId && user?.id !== String(ownerId)) return null;
+    
+    return (
+      ...
+    );
+  };
+  ```
+
+- src/components/ui/LinkButton.tsx 수정
+
+  ```tsx
+  'use client';
+  import { btnColor, btnSize, baseButtonClass } from './buttonStyle';
+  import Link from 'next/link';
+  import { useSession } from 'next-auth/react';
+  ...
+  // LinkButton 컴포넌트 정의
+  export const LinkButton: React.FC<LinkButtonProps> = ({ children, href, bgColor='orange', size='md', className='', needLogin, ownerId, ...rest }) => {
+    const { data: session, status } = useSession(); // NextAuth 세션 사용
+    const user = session?.user;
+
+    // 로딩 중일 때는 버튼을 숨김
+    if (status === 'loading') return null;
+
+    // 로그인 필요 & 로그인 안 된 경우 버튼 미노출
+    if (needLogin && !user) return null;
+    // ownerId가 있고, 현재 로그인 사용자가 owner가 아니면 버튼 미노출
+    if (ownerId && user?.id !== String(ownerId)) return null;
+
+    return (
+      ...
+    );
+  };
+  ```
+
+### 5.8.7 src/zustand/userStore.ts 파일 삭제
+
+### 5.8.8 테스트
+- 게시물 등록, 수정, 삭제
+- 댓글 등록, 삭제
+
+## 5.9 미들웨어
+
+### 5.9.1 미들웨어 개요
+- Next.js 미들웨어는 라우터 호출 전에 실행되는 코드
+- 요청 처리 순서: `요청 → 미들웨어 실행 → 라우트 매칭 → 페이지/API 실행 → 응답`
+- 페이지 컴포넌트나 route handler가 실행되기 전에 인증, 권한 확인, 리다이렉트 등의 작업 수행
+- 서버 사이드에서 실행되어 보안 강화 및 빠른 응답 제공
+- src/middleware.ts 파일로 작성
+
+#### 미들웨어 적용 대상
+- 게시글 작성 페이지: 로그인 필수
+- 게시글 수정 페이지: 작성자 본인만 접근 가능
+- 관리자 페이지: 관리자 권한 필요
+- router handler: 인증 토큰 검증
+
+### 5.9.2 미들웨어 추가
+- src/middleware.ts 작성
+
+  ```ts
+  import { NextRequest, NextResponse } from "next/server";
+  import { auth } from "./auth";
+
+  export default async function middleware(request: NextRequest) {
+    console.log('미들웨어 호출', request.nextUrl.href);
+    const session = await auth();
+
+    if(!(session?.user)){ // 로그인 되지 않은 경우
+      return NextResponse.redirect(`${request.nextUrl.origin}/login?redirect=${request.nextUrl.pathname}`);
+    }
+
+    // 공지사항 글작성이나 수정 페이지에 관리자가 아닌 일반 유저가 접근한 경우
+    if(request.nextUrl.pathname.startsWith('/notice') && session.user.type !== 'admin'){
+      return NextResponse.redirect(`${request.nextUrl.origin}/`);
+    }
+  }
+
+  export const config = {
+    matcher: [ // matcher에 정의한 패턴과 일치하는 url이 요청될 경우 미들웨어가 실행됨
+      '/:type/new', // 글작성 페이지
+      '/:type/:_id/edit' // 글수정 페이지
+    ]
+  };
+  ```
+
+### 5.9.3 테스트
+- 로그아웃 후에 직접 주소창에 게시글 등록 페이지와 수정 페이지를 입력해서 로그인 페이지로 이동하는지 확인
+  - http://localhost:3000/qna/new
+  - http://localhost:3000/qna/1/edit
 
 

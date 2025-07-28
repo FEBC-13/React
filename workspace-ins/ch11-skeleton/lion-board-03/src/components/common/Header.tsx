@@ -43,12 +43,15 @@ export default function Header() {
           { user ? (
             <form onSubmit={ handleLogout }>
               <p className="flex items-center">
-                <Image 
-                  className="w-8 h-8 object-cover rounded-full mr-2" 
-                  src={user.image ? `${API_URL}/${user.image}` : '/images/front-end.png'  }
-                  width="32"
-                  height="32"
-                  alt={`${user.name} 프로필 이미지`} />
+                { user.image && (
+                  <Image 
+                    className="w-8 h-8 object-cover rounded-full mr-2" 
+                    src={`${API_URL}/${user.image}`}
+                    width="32"
+                    height="32"
+                    alt={`${user.name} 프로필 이미지`}
+                  />
+                )}
                 {user.name}님 :)
                 <Button type="submit" size="sm" bgColor="gray">로그아웃</Button>
               </p>

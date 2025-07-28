@@ -9,6 +9,7 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID || '';
  * @returns 파일 업로드 결과를 반환하는 Promise
  * @description
  * 파일을 서버에 업로드하고, 업로드된 파일 정보를 반환합니다.
+ * API 참고: https://fesp-api.koyeb.app/market/apidocs/#/%ED%8C%8C%EC%9D%BC/post_files_
  */
 export async function uploadFile(formData: FormData): ApiResPromise<FileUpload[]> {
   // 새로운 FormData 객체 생성 후 파일 추가

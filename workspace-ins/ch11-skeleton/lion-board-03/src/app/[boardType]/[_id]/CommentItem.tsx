@@ -10,13 +10,15 @@ export default function CommentItem({ reply }: { reply: PostReply }) {
     <div className="shadow-md rounded-lg p-4 mb-4">
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center">
-          { reply.user.image && <Image
-            className="w-8 mr-2 rounded-full"
-            src={`${API_URL}/${reply.user.image}`}
-            alt={`${reply.user.name} 프로필 이미지`}
-            width="32"
-            height="32"
-          /> }
+          { reply.user.image && (
+            <Image
+              className="w-8 mr-2 rounded-full"
+              src={`${API_URL}/${reply.user.image}`}
+              alt={`${reply.user.name} 프로필 이미지`}
+              width="32"
+              height="32"
+            />
+          )}
           <Link href="" className="text-orange-400">{ reply.user.name }</Link>
         </div>
         <time className="text-gray-500" dateTime={reply.createdAt}>{ reply.createdAt }</time>
